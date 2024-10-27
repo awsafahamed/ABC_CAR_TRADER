@@ -8,7 +8,7 @@ namespace Project_AD
 {
     public partial class ManageCarPartsForm : Form
     {
-        string connectionString = ConfigurationManager.ConnectionStrings["CarManagementDB"].ConnectionString;
+        private readonly string connectionString = ConfigurationManager.ConnectionStrings["CarManagementDB"].ConnectionString;
 
         public ManageCarPartsForm()
         {
@@ -17,51 +17,75 @@ namespace Project_AD
 
         private void ManageCarPartsForm_Load(object sender, EventArgs e)
         {
-            LoadCars();
-            LoadCarParts(); // Initial load
+            try
+            {
+                LoadCars();
+                LoadCarParts(); // Initial load
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("An error occurred while loading the form: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         // Load Cars to display in ComboBox with Make and Model
         private void LoadCars()
         {
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            try
             {
-                string query = "SELECT Id, Make + ' ' + Model AS CarName FROM Cars";
-                SqlDataAdapter adapter = new SqlDataAdapter(query, conn);
-                DataTable dt = new DataTable();
-                adapter.Fill(dt);
-                cbCar.DisplayMember = "CarName";   // Display the concatenated name
-                cbCar.ValueMember = "Id";          // Use the Car ID as the value
-                cbCar.DataSource = dt;
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    string query = "SELECT Id, Make + ' ' + Model AS CarName FROM Cars";
+                    SqlDataAdapter adapter = new SqlDataAdapter(query, conn);
+                    DataTable dt = new DataTable();
+                    adapter.Fill(dt);
+                    cbCar.DisplayMember = "CarName";   // Display the concatenated name
+                    cbCar.ValueMember = "Id";          // Use the Car ID as the value
+                    cbCar.DataSource = dt;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Failed to load cars: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         // Load Car Parts into DataGridView
         private void LoadCarParts(string searchFilter = "")
         {
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            try
             {
-                string query = "SELECT Id, Name, CarId, Price FROM CarParts";
-                if (!string.IsNullOrEmpty(searchFilter))
+                using (SqlConnection conn = new SqlConnection(connectionString))
                 {
-                    query += " WHERE Name LIKE @SearchFilter";
-                }
-                SqlCommand cmd = new SqlCommand(query, conn);
-                if (!string.IsNullOrEmpty(searchFilter))
-                {
-                    cmd.Parameters.AddWithValue("@SearchFilter", "%" + searchFilter + "%");
-                }
+                    string query = "SELECT Id, Name, CarId, Price FROM CarParts";
+                    if (!string.IsNullOrEmpty(searchFilter))
+                    {
+                        query += " WHERE Name LIKE @SearchFilter";
+                    }
 
-                SqlDataAdapter adapter = new SqlDataAdapter(cmd);
-                DataTable dt = new DataTable();
-                adapter.Fill(dt);
-                dgvCarParts.DataSource = dt;
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        if (!string.IsNullOrEmpty(searchFilter))
+                        {
+                            cmd.Parameters.AddWithValue("@SearchFilter", "%" + searchFilter + "%");
+                        }
 
-                // Adjust column headers
-                dgvCarParts.Columns["Id"].HeaderText = "ID";
-                dgvCarParts.Columns["Name"].HeaderText = "Part Name";
-                dgvCarParts.Columns["CarId"].HeaderText = "Car ID";
-                dgvCarParts.Columns["Price"].HeaderText = "Price";
+                        SqlDataAdapter adapter = new SqlDataAdapter(cmd);
+                        DataTable dt = new DataTable();
+                        adapter.Fill(dt);
+                        dgvCarParts.DataSource = dt;
+
+                        // Adjust column headers
+                        dgvCarParts.Columns["Id"].HeaderText = "ID";
+                        dgvCarParts.Columns["Name"].HeaderText = "Part Name";
+                        dgvCarParts.Columns["CarId"].HeaderText = "Car ID";
+                        dgvCarParts.Columns["Price"].HeaderText = "Price";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Failed to load car parts: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -79,23 +103,24 @@ namespace Project_AD
                     using (SqlConnection conn = new SqlConnection(connectionString))
                     {
                         string query = "INSERT INTO CarParts (Name, CarId, Price) VALUES (@Name, @CarId, @Price)";
-                        SqlCommand cmd = new SqlCommand(query, conn);
-                        cmd.Parameters.AddWithValue("@Name", partName);
-                        cmd.Parameters.AddWithValue("@CarId", carId);
-                        cmd.Parameters.AddWithValue("@Price", partPrice);
+                        using (SqlCommand cmd = new SqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@Name", partName);
+                            cmd.Parameters.AddWithValue("@CarId", carId);
+                            cmd.Parameters.AddWithValue("@Price", partPrice);
 
-                        conn.Open();
-                        cmd.ExecuteNonQuery();
-                        conn.Close();
+                            conn.Open();
+                            cmd.ExecuteNonQuery();
+                        }
                     }
 
                     LoadCarParts();  // Reload the car parts after adding
                     ClearFields();
-                    MessageBox.Show("Part added successfully!");
+                    MessageBox.Show("Part added successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Error adding part: " + ex.Message);
+                    MessageBox.Show("Error adding part: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
@@ -105,7 +130,7 @@ namespace Project_AD
         {
             if (dgvCarParts.SelectedRows.Count == 0)
             {
-                MessageBox.Show("Please select a part to edit.");
+                MessageBox.Show("Please select a part to edit.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -121,24 +146,25 @@ namespace Project_AD
                     using (SqlConnection conn = new SqlConnection(connectionString))
                     {
                         string query = "UPDATE CarParts SET Name = @Name, CarId = @CarId, Price = @Price WHERE Id = @Id";
-                        SqlCommand cmd = new SqlCommand(query, conn);
-                        cmd.Parameters.AddWithValue("@Name", partName);
-                        cmd.Parameters.AddWithValue("@CarId", carId);
-                        cmd.Parameters.AddWithValue("@Price", partPrice);
-                        cmd.Parameters.AddWithValue("@Id", partId);
+                        using (SqlCommand cmd = new SqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@Name", partName);
+                            cmd.Parameters.AddWithValue("@CarId", carId);
+                            cmd.Parameters.AddWithValue("@Price", partPrice);
+                            cmd.Parameters.AddWithValue("@Id", partId);
 
-                        conn.Open();
-                        cmd.ExecuteNonQuery();
-                        conn.Close();
+                            conn.Open();
+                            cmd.ExecuteNonQuery();
+                        }
                     }
 
                     LoadCarParts();  // Reload the car parts after editing
                     ClearFields();
-                    MessageBox.Show("Part updated successfully!");
+                    MessageBox.Show("Part updated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Error updating part: " + ex.Message);
+                    MessageBox.Show("Error updating part: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
@@ -148,7 +174,7 @@ namespace Project_AD
         {
             if (dgvCarParts.SelectedRows.Count == 0)
             {
-                MessageBox.Show("Please select a part to delete.");
+                MessageBox.Show("Please select a part to delete.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -159,32 +185,40 @@ namespace Project_AD
                 using (SqlConnection conn = new SqlConnection(connectionString))
                 {
                     string query = "DELETE FROM CarParts WHERE Id = @Id";
-                    SqlCommand cmd = new SqlCommand(query, conn);
-                    cmd.Parameters.AddWithValue("@Id", partId);
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Id", partId);
 
-                    conn.Open();
-                    cmd.ExecuteNonQuery();
-                    conn.Close();
+                        conn.Open();
+                        cmd.ExecuteNonQuery();
+                    }
                 }
 
                 LoadCarParts();  // Reload the car parts after deleting
-                MessageBox.Show("Part deleted successfully!");
+                MessageBox.Show("Part deleted successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error deleting part: " + ex.Message);
+                MessageBox.Show("Error deleting part: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         // When a row in the DataGridView is selected, load the part details
         private void dgvCarParts_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex >= 0 && e.RowIndex < dgvCarParts.Rows.Count)
+            try
             {
-                DataGridViewRow row = dgvCarParts.Rows[e.RowIndex];
-                cbCar.SelectedValue = row.Cells["CarId"].Value;           // Set the car in the ComboBox
-                txtPartName.Text = row.Cells["Name"].Value.ToString();     // Set part name
-                txtPartPrice.Text = row.Cells["Price"].Value.ToString();   // Set part price
+                if (e.RowIndex >= 0 && e.RowIndex < dgvCarParts.Rows.Count)
+                {
+                    DataGridViewRow row = dgvCarParts.Rows[e.RowIndex];
+                    cbCar.SelectedValue = row.Cells["CarId"].Value;           // Set the car in the ComboBox
+                    txtPartName.Text = row.Cells["Name"].Value.ToString();     // Set part name
+                    txtPartPrice.Text = row.Cells["Price"].Value.ToString();   // Set part price
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error selecting part details: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -201,19 +235,19 @@ namespace Project_AD
         {
             if (string.IsNullOrWhiteSpace(txtPartName.Text))
             {
-                MessageBox.Show("Please enter a valid part name.");
+                MessageBox.Show("Please enter a valid part name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(txtPartPrice.Text) || !decimal.TryParse(txtPartPrice.Text, out _))
             {
-                MessageBox.Show("Please enter a valid price.");
+                MessageBox.Show("Please enter a valid price.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 
             if (cbCar.SelectedIndex == -1)
             {
-                MessageBox.Show("Please select a car.");
+                MessageBox.Show("Please select a car.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 
@@ -222,8 +256,14 @@ namespace Project_AD
 
         private void txtSearchCarParts_TextChanged(object sender, EventArgs e)
         {
-            // Call LoadCarParts with the search filter whenever the text changes
-            LoadCarParts(txtSearchCarParts.Text);
+            try
+            {
+                LoadCarParts(txtSearchCarParts.Text);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error searching car parts: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }

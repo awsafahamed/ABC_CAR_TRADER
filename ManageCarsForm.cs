@@ -8,7 +8,7 @@ namespace Project_AD
 {
     public partial class ManageCarsForm : Form
     {
-        private string connectionString = ConfigurationManager.ConnectionStrings["CarManagementDB"].ConnectionString;
+        private readonly string connectionString = ConfigurationManager.ConnectionStrings["CarManagementDB"].ConnectionString;
 
         public ManageCarsForm()
         {
@@ -22,76 +22,71 @@ namespace Project_AD
 
         private void LoadCars(string searchTerm = "")
         {
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            try
             {
-                string query = "SELECT Id, Make, Model, Year, Price FROM Cars";
-                if (!string.IsNullOrWhiteSpace(searchTerm))
+                using (SqlConnection conn = new SqlConnection(connectionString))
                 {
-                    query += " WHERE Make LIKE @SearchTerm OR Model LIKE @SearchTerm";
+                    string query = "SELECT Id, Make, Model, Year, Price FROM Cars";
+                    if (!string.IsNullOrWhiteSpace(searchTerm))
+                    {
+                        query += " WHERE Make LIKE @SearchTerm OR Model LIKE @SearchTerm";
+                    }
+
+                    using (SqlDataAdapter adapter = new SqlDataAdapter(query, conn))
+                    {
+                        if (!string.IsNullOrWhiteSpace(searchTerm))
+                        {
+                            adapter.SelectCommand.Parameters.AddWithValue("@SearchTerm", "%" + searchTerm + "%");
+                        }
+
+                        DataTable dt = new DataTable();
+                        adapter.Fill(dt);
+                        dgvCars.DataSource = dt;
+
+                        // Adjust column headers
+                        dgvCars.Columns["Id"].HeaderText = "ID";
+                        dgvCars.Columns["Make"].HeaderText = "Make";
+                        dgvCars.Columns["Model"].HeaderText = "Model";
+                        dgvCars.Columns["Year"].HeaderText = "Year";
+                        dgvCars.Columns["Price"].HeaderText = "Price";
+                    }
                 }
-
-                SqlDataAdapter adapter = new SqlDataAdapter(query, conn);
-                if (!string.IsNullOrWhiteSpace(searchTerm))
-                {
-                    adapter.SelectCommand.Parameters.AddWithValue("@SearchTerm", "%" + searchTerm + "%");
-                }
-
-                DataTable dt = new DataTable();
-                adapter.Fill(dt);
-                dgvCars.DataSource = dt;
-
-                // Adjust column headers
-                dgvCars.Columns["Id"].HeaderText = "ID";
-                dgvCars.Columns["Make"].HeaderText = "Make";
-                dgvCars.Columns["Model"].HeaderText = "Model";
-                dgvCars.Columns["Year"].HeaderText = "Year";
-                dgvCars.Columns["Price"].HeaderText = "Price";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error loading cars: " + ex.Message);
             }
         }
 
         private void btnAddCar_Click(object sender, EventArgs e)
         {
-            string make = txtMake.Text.Trim();
-            string model = txtModel.Text.Trim();
-            int year;
-            decimal price;
+            if (!ValidateCarInput(out string make, out string model, out int year, out decimal price)) return;
 
-            // Validate input
-            if (string.IsNullOrWhiteSpace(make) || string.IsNullOrWhiteSpace(model))
+            try
             {
-                MessageBox.Show("Make and Model cannot be empty.");
-                return;
-            }
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    string query = "INSERT INTO Cars (Make, Model, Year, Price) VALUES (@Make, @Model, @Year, @Price)";
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Make", make);
+                        cmd.Parameters.AddWithValue("@Model", model);
+                        cmd.Parameters.AddWithValue("@Year", year);
+                        cmd.Parameters.AddWithValue("@Price", price);
 
-            if (!int.TryParse(txtYear.Text.Trim(), out year) || year < 1886 || year > DateTime.Now.Year)
+                        conn.Open();
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+
+                LoadCars();
+                ClearFields();
+                MessageBox.Show("Car added successfully!");
+            }
+            catch (Exception ex)
             {
-                MessageBox.Show("Please enter a valid year.");
-                return;
+                MessageBox.Show("Error adding car: " + ex.Message);
             }
-
-            if (!decimal.TryParse(txtPrice.Text.Trim(), out price))
-            {
-                MessageBox.Show("Please enter a valid price.");
-                return;
-            }
-
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                string query = "INSERT INTO Cars (Make, Model, Year, Price) VALUES (@Make, @Model, @Year, @Price)";
-                SqlCommand cmd = new SqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("@Make", make);
-                cmd.Parameters.AddWithValue("@Model", model);
-                cmd.Parameters.AddWithValue("@Year", year);
-                cmd.Parameters.AddWithValue("@Price", price);
-
-                conn.Open();
-                cmd.ExecuteNonQuery();
-                conn.Close();
-            }
-
-            LoadCars();
-            ClearFields();
-            MessageBox.Show("Car added successfully!");
         }
 
         private void btnEditCar_Click(object sender, EventArgs e)
@@ -102,49 +97,36 @@ namespace Project_AD
                 return;
             }
 
+            if (!ValidateCarInput(out string make, out string model, out int year, out decimal price)) return;
+
             int carId = Convert.ToInt32(dgvCars.SelectedRows[0].Cells["Id"].Value);
-            string make = txtMake.Text.Trim();
-            string model = txtModel.Text.Trim();
-            int year;
-            decimal price;
 
-            // Validate input
-            if (string.IsNullOrWhiteSpace(make) || string.IsNullOrWhiteSpace(model))
+            try
             {
-                MessageBox.Show("Make and Model cannot be empty.");
-                return;
-            }
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    string query = "UPDATE Cars SET Make = @Make, Model = @Model, Year = @Year, Price = @Price WHERE Id = @Id";
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Make", make);
+                        cmd.Parameters.AddWithValue("@Model", model);
+                        cmd.Parameters.AddWithValue("@Year", year);
+                        cmd.Parameters.AddWithValue("@Price", price);
+                        cmd.Parameters.AddWithValue("@Id", carId);
 
-            if (!int.TryParse(txtYear.Text.Trim(), out year) || year < 1886 || year > DateTime.Now.Year)
+                        conn.Open();
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+
+                LoadCars();
+                ClearFields();
+                MessageBox.Show("Car updated successfully!");
+            }
+            catch (Exception ex)
             {
-                MessageBox.Show("Please enter a valid year.");
-                return;
+                MessageBox.Show("Error updating car: " + ex.Message);
             }
-
-            if (!decimal.TryParse(txtPrice.Text.Trim(), out price))
-            {
-                MessageBox.Show("Please enter a valid price.");
-                return;
-            }
-
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                string query = "UPDATE Cars SET Make = @Make, Model = @Model, Year = @Year, Price = @Price WHERE Id = @Id";
-                SqlCommand cmd = new SqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("@Make", make);
-                cmd.Parameters.AddWithValue("@Model", model);
-                cmd.Parameters.AddWithValue("@Year", year);
-                cmd.Parameters.AddWithValue("@Price", price);
-                cmd.Parameters.AddWithValue("@Id", carId);
-
-                conn.Open();
-                cmd.ExecuteNonQuery();
-                conn.Close();
-            }
-
-            LoadCars();
-            ClearFields();
-            MessageBox.Show("Car updated successfully!");
         }
 
         private void btnDeleteCar_Click(object sender, EventArgs e)
@@ -157,19 +139,27 @@ namespace Project_AD
 
             int carId = Convert.ToInt32(dgvCars.SelectedRows[0].Cells["Id"].Value);
 
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            try
             {
-                string query = "DELETE FROM Cars WHERE Id = @Id";
-                SqlCommand cmd = new SqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("@Id", carId);
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    string query = "DELETE FROM Cars WHERE Id = @Id";
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Id", carId);
 
-                conn.Open();
-                cmd.ExecuteNonQuery();
-                conn.Close();
+                        conn.Open();
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+
+                LoadCars();
+                MessageBox.Show("Car deleted successfully!");
             }
-
-            LoadCars();
-            MessageBox.Show("Car deleted successfully!");
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error deleting car: " + ex.Message);
+            }
         }
 
         private void dgvCars_CellContentClick(object sender, DataGridViewCellEventArgs e)
@@ -184,39 +174,36 @@ namespace Project_AD
             }
         }
 
-        private void ClearFields()
-        {
-            txtMake.Clear();
-            txtModel.Clear();
-            txtYear.Clear();
-            txtPrice.Clear();
-        }
-
-        // Handle the Year text change event
         private void txtYear_TextChanged(object sender, EventArgs e)
         {
-            int year;
-            // Validate the year input
-            if (int.TryParse(txtYear.Text.Trim(), out year) && year >= 1886 && year <= DateTime.Now.Year)
+            if (int.TryParse(txtYear.Text.Trim(), out int year) && year >= 1886 && year <= DateTime.Now.Year)
             {
-                if (dgvCars.SelectedRows.Count > 0) // Ensure a row is selected
+                if (dgvCars.SelectedRows.Count > 0)
                 {
                     int carId = Convert.ToInt32(dgvCars.SelectedRows[0].Cells["Id"].Value);
 
-                    using (SqlConnection conn = new SqlConnection(connectionString))
+                    try
                     {
-                        string query = "UPDATE Cars SET Year = @Year WHERE Id = @Id";
-                        SqlCommand cmd = new SqlCommand(query, conn);
-                        cmd.Parameters.AddWithValue("@Year", year);
-                        cmd.Parameters.AddWithValue("@Id", carId);
+                        using (SqlConnection conn = new SqlConnection(connectionString))
+                        {
+                            string query = "UPDATE Cars SET Year = @Year WHERE Id = @Id";
+                            using (SqlCommand cmd = new SqlCommand(query, conn))
+                            {
+                                cmd.Parameters.AddWithValue("@Year", year);
+                                cmd.Parameters.AddWithValue("@Id", carId);
 
-                        conn.Open();
-                        cmd.ExecuteNonQuery();
-                        conn.Close();
+                                conn.Open();
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+
+                        LoadCars();
+                        MessageBox.Show("Car year updated successfully!");
                     }
-
-                    LoadCars(); // Refresh the DataGridView to show the updated year
-                    MessageBox.Show("Car year updated successfully!");
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Error updating car year: " + ex.Message);
+                    }
                 }
             }
             else
@@ -225,11 +212,46 @@ namespace Project_AD
             }
         }
 
-      
         private void txtSearchCars_TextChanged(object sender, EventArgs e)
         {
             string searchTerm = txtSearchCars.Text.Trim();
             LoadCars(searchTerm);
+        }
+
+        private void ClearFields()
+        {
+            txtMake.Clear();
+            txtModel.Clear();
+            txtYear.Clear();
+            txtPrice.Clear();
+        }
+
+        private bool ValidateCarInput(out string make, out string model, out int year, out decimal price)
+        {
+            make = txtMake.Text.Trim();
+            model = txtModel.Text.Trim();
+            year = 0;
+            price = 0;
+
+            if (string.IsNullOrWhiteSpace(make) || string.IsNullOrWhiteSpace(model))
+            {
+                MessageBox.Show("Make and Model cannot be empty.");
+                return false;
+            }
+
+            if (!int.TryParse(txtYear.Text.Trim(), out year) || year < 1886 || year > DateTime.Now.Year)
+            {
+                MessageBox.Show("Please enter a valid year.");
+                return false;
+            }
+
+            if (!decimal.TryParse(txtPrice.Text.Trim(), out price))
+            {
+                MessageBox.Show("Please enter a valid price.");
+                return false;
+            }
+
+            return true;
         }
     }
 }

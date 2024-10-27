@@ -8,7 +8,7 @@ namespace Project_AD
 {
     public partial class ManageCustomersForm : Form
     {
-        string connectionString = ConfigurationManager.ConnectionStrings["CarManagementDB"].ConnectionString;
+        private readonly string connectionString = ConfigurationManager.ConnectionStrings["CarManagementDB"].ConnectionString;
 
         public ManageCustomersForm()
         {
@@ -18,104 +18,128 @@ namespace Project_AD
 
         private void LoadCustomers()
         {
-            // Load customer data into the DataGridView
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            try
             {
-                string query = "SELECT Id, CustomerName, Email, Password FROM Customers";
-                SqlDataAdapter adapter = new SqlDataAdapter(query, conn);
-                DataTable customersTable = new DataTable();
-                adapter.Fill(customersTable);
-                dgvCustomers.DataSource = customersTable;
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    string query = "SELECT Id, CustomerName, Email, Password FROM Customers";
+                    SqlDataAdapter adapter = new SqlDataAdapter(query, conn);
+                    DataTable customersTable = new DataTable();
+                    adapter.Fill(customersTable);
+                    dgvCustomers.DataSource = customersTable;
+                }
+            }
+            catch (SqlException ex)
+            {
+                MessageBox.Show($"Error loading customers: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private void btnAddCustomer_Click(object sender, EventArgs e)
         {
-            // Add new customer to the database
-            string name = txtCustomerName.Text;
-            string email = txtEmail.Text;
-            string password = txtPassword.Text;
-
-            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            try
             {
-                MessageBox.Show("Please fill in all fields.");
-                return;
-            }
-
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                string query = "INSERT INTO Customers (CustomerName, Email, Password) VALUES (@Name, @Email, @Password)";
-                SqlCommand cmd = new SqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("@Name", name);
-                cmd.Parameters.AddWithValue("@Email", email);
-                cmd.Parameters.AddWithValue("@Password", password);
-
-                conn.Open();
-                cmd.ExecuteNonQuery();
-                MessageBox.Show("Customer added successfully!");
-                LoadCustomers();
-            }
-        }
-
-        private void btnEditCustomer_Click(object sender, EventArgs e)
-        {
-            // Edit selected customer record
-            if (dgvCustomers.SelectedRows.Count > 0)
-            {
-                int customerId = Convert.ToInt32(dgvCustomers.SelectedRows[0].Cells["Id"].Value);
-                string name = txtCustomerName.Text;
-                string email = txtEmail.Text;
-                string password = txtPassword.Text;
+                string name = txtCustomerName.Text.Trim();
+                string email = txtEmail.Text.Trim();
+                string password = txtPassword.Text.Trim();
 
                 if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
                 {
-                    MessageBox.Show("Please fill in all fields.");
+                    MessageBox.Show("Please fill in all fields.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 using (SqlConnection conn = new SqlConnection(connectionString))
                 {
-                    string query = "UPDATE Customers SET CustomerName = @Name, Email = @Email, Password = @Password WHERE Id = @Id";
+                    string query = "INSERT INTO Customers (CustomerName, Email, Password) VALUES (@Name, @Email, @Password)";
                     SqlCommand cmd = new SqlCommand(query, conn);
-                    cmd.Parameters.AddWithValue("@Id", customerId);
                     cmd.Parameters.AddWithValue("@Name", name);
                     cmd.Parameters.AddWithValue("@Email", email);
                     cmd.Parameters.AddWithValue("@Password", password);
 
                     conn.Open();
                     cmd.ExecuteNonQuery();
-                    MessageBox.Show("Customer updated successfully!");
+                    MessageBox.Show("Customer added successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     LoadCustomers();
                 }
             }
-            else
+            catch (SqlException ex)
             {
-                MessageBox.Show("Please select a customer to edit.");
+                MessageBox.Show($"Error adding customer: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnEditCustomer_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (dgvCustomers.SelectedRows.Count > 0)
+                {
+                    int customerId = Convert.ToInt32(dgvCustomers.SelectedRows[0].Cells["Id"].Value);
+                    string name = txtCustomerName.Text.Trim();
+                    string email = txtEmail.Text.Trim();
+                    string password = txtPassword.Text.Trim();
+
+                    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+                    {
+                        MessageBox.Show("Please fill in all fields.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    using (SqlConnection conn = new SqlConnection(connectionString))
+                    {
+                        string query = "UPDATE Customers SET CustomerName = @Name, Email = @Email, Password = @Password WHERE Id = @Id";
+                        SqlCommand cmd = new SqlCommand(query, conn);
+                        cmd.Parameters.AddWithValue("@Id", customerId);
+                        cmd.Parameters.AddWithValue("@Name", name);
+                        cmd.Parameters.AddWithValue("@Email", email);
+                        cmd.Parameters.AddWithValue("@Password", password);
+
+                        conn.Open();
+                        cmd.ExecuteNonQuery();
+                        MessageBox.Show("Customer updated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        LoadCustomers();
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Please select a customer to edit.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (SqlException ex)
+            {
+                MessageBox.Show($"Error updating customer: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private void btnDeleteCustomer_Click(object sender, EventArgs e)
         {
-            // Delete selected customer record
-            if (dgvCustomers.SelectedRows.Count > 0)
+            try
             {
-                int customerId = Convert.ToInt32(dgvCustomers.SelectedRows[0].Cells["Id"].Value);
-
-                using (SqlConnection conn = new SqlConnection(connectionString))
+                if (dgvCustomers.SelectedRows.Count > 0)
                 {
-                    string query = "DELETE FROM Customers WHERE Id = @Id";
-                    SqlCommand cmd = new SqlCommand(query, conn);
-                    cmd.Parameters.AddWithValue("@Id", customerId);
+                    int customerId = Convert.ToInt32(dgvCustomers.SelectedRows[0].Cells["Id"].Value);
 
-                    conn.Open();
-                    cmd.ExecuteNonQuery();
-                    MessageBox.Show("Customer deleted successfully!");
-                    LoadCustomers();
+                    using (SqlConnection conn = new SqlConnection(connectionString))
+                    {
+                        string query = "DELETE FROM Customers WHERE Id = @Id";
+                        SqlCommand cmd = new SqlCommand(query, conn);
+                        cmd.Parameters.AddWithValue("@Id", customerId);
+
+                        conn.Open();
+                        cmd.ExecuteNonQuery();
+                        MessageBox.Show("Customer deleted successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        LoadCustomers();
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Please select a customer to delete.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
-            else
+            catch (SqlException ex)
             {
-                MessageBox.Show("Please select a customer to delete.");
+                MessageBox.Show($"Error deleting customer: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -131,8 +155,9 @@ namespace Project_AD
             }
         }
 
-        private void txtCustomerName_TextChanged(object sender, EventArgs e) { }
-        private void txtEmail_TextChanged(object sender, EventArgs e) { }
-        private void txtPassword_TextChanged(object sender, EventArgs e) { }
+        private void ManageCustomersForm_Load(object sender, EventArgs e)
+        {
+            // You can add additional initialization code here if needed
+        }
     }
 }
